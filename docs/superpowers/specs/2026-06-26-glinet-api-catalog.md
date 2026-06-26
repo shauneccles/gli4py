@@ -238,3 +238,50 @@ remove_port_forward update install_package remove_package upgrade_online upgrade
 **Never brute (DANGEROUS, hard-excluded even from `--dangerous-full` unless `--include-destructive`):**
 `reboot reset_firmware factoryreset sysupgrade factory upgrade_start watchdog signal write exec remove
 commit apply password_set set_password reboot_modem send_at_command init unbind generate_certificate`
+
+## SSH ground-truth (from the live device — definitive)
+
+`/usr/lib/oui-httpd/rpc/` is the exact handler directory (one file per service). Full listing
+from the test device (`.so` = compiled C plugin, others = Lua source; `.so`/underscore variants
+are duplicates of the hyphenated service):
+
+```
+acl  adguardhome  bark  black_white_list  cable  clients  cloud  ddns(.so)  diag  dns  dpi★NEW
+edgerouter  firewall  flow_statistics★NEW  igmp  ipv6  kmwan  lan  led  local-access★NEW  logread
+luci  modem(.so)  mptun★NEW  nas-web(.so)  netmode  network  ovpn-client(.so)  ovpn_client
+parental-control  plugins(.so)  qos  repeater  rtty  s2s(.so)  sms-forward★NEW  sqm★NEW
+srv_conn_check★NEW  system  tailscale  tethering  timer★NEW  tor  ui  upgrade(.so)  vpn-client
+wg-client(.so)  wg_client  wifi  zerotier   (+ libcmcollect.so helper)
+```
+
+**★NEW services not in the HTTP/research catalog** (add to the catalog seed; methods to be
+extracted via `--ssh` and confirmed by probe):
+- `dpi` — deep packet inspection / app stats
+- `flow_statistics` — per-interface/per-client throughput (the #2 "network throughput" feature)
+- `sqm` — Smart Queue Management (QoS/cake)
+- `mptun` — multipath tunnel
+- `sms-forward` — SMS forwarding (cellular)
+- `local-access` — local-access control
+- `srv_conn_check` — service connectivity check
+- `timer` — scheduled tasks
+
+**Method extraction technique** (read-only, per handler):
+- Lua handler → `grep -oE 'function M\.[A-Za-z0-9_]+'` (+ alternate `M.x = function` / `["x"]=function` /
+  trailing `return { x = ... }` patterns). E.g. `tor` → `get_config, set_config, get_status`.
+- `.so` handler → `strings <file> | grep -E '^(get|set|start|stop|add|remove|list|check|generate|export)_?[a-z0-9_]*$'`,
+  then drop internal helpers (e.g. modem.so's `add_event_mgr`, `get_globle_status_manager`). Candidates,
+  confirmed by a read-only HTTP probe. E.g. `wg-client.so` → `get_all_config_list, get_config_list,
+  get_group_list, add_config, set_config, remove_config, set_proxy, check_config, get_recommend_config,
+  get_third_config`; `ovpn-server.so` → `get_config, get_status, get_user_list, get_route_list,
+  get_setting, start, stop, set_config, generate_certificate, add_user, remove_user, *_route`.
+
+**Dispatch/ACL** (`/usr/share/gl-ngx/oui-rpc.lua`): `call`→`[sid, object, method, args]`; `object`/`method`
+must match `^[%a_][%w%-_]+$`; gated by `rpc.is_no_auth(object,method)` else `rpc.access("rpc",
+object.."."..method)` against `/etc/oui/oui.db`. `no-auth-methods` (from `/etc/config/oui-httpd`):
+`ui {get_lang, load_locales, check_initialized, init}`, `system {get_timezone_list}`.
+
+**`ubus list` (lower layer, context only):** `cellular.{cm,collect,failover,modem,network,sim,status}`,
+`dnsmasq(.dns)`, `gl-clients`, `gl-dpi`, `gl-session`, `file`, `iwinfo`, `log`, `luci(-rpc)`, `network`,
+`network.device`, `network.interface(.{lan,wan,wwan,wgserver,secondwan,loopback})`, `network.wireless`,
+`rc`, `repeater`, `service`, `session`, `sms_manager`, `system`, `uci`, `mtk-wifi`, many `hotplug.*`.
+
