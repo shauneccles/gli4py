@@ -12,10 +12,17 @@ return M
 """
 
 # `strings` dump from a .so (real method names + internal-helper noise)
-SO_WG = "\n".join([
-    "get_all_config_list", "add_config", "set_config", "set_proxy",
-    "check_string_length", "get_peer_key", "xyzzy_internal",
-])
+SO_WG = "\n".join(
+    [
+        "get_all_config_list",
+        "add_config",
+        "set_config",
+        "set_proxy",
+        "check_string_length",
+        "get_peer_key",
+        "xyzzy_internal",
+    ]
+)
 
 
 def test_parse_handlers_lua_and_so_with_dedup():

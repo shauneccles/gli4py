@@ -1,5 +1,5 @@
 """enumerate_device merges an injected SshSurface (no paramiko needed)."""
-# pylint: disable=missing-function-docstring,redefined-outer-name
+# pylint: disable=missing-function-docstring,redefined-outer-name,unused-argument
 
 from gli4py.enumerator.models import ProbeStatus, SshSurface
 from gli4py.enumerator.probe import enumerate_device
@@ -22,9 +22,13 @@ async def test_ssh_surface_adds_confirmed_methods_with_params():
         features=["flowstatistics"],
     )
     report = await enumerate_device(
-        caller, device_info={"model": "x", "firmware_version": "1"}, ssh_surface=surface,
+        caller,
+        device_info={"model": "x", "firmware_version": "1"},
+        ssh_surface=surface,
     )
-    hit = next(m for m in report.methods if (m.service, m.method) == ("network_acl", "get_acl_rules"))
+    hit = next(
+        m for m in report.methods if (m.service, m.method) == ("network_acl", "get_acl_rules")
+    )
     assert hit.discovered_by == "ssh"
     assert hit.status is ProbeStatus.AVAILABLE
     assert hit.params == ["period"]

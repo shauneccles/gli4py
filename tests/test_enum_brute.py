@@ -1,5 +1,5 @@
 """Brute-force planning + a fake-caller brute run."""
-# pylint: disable=missing-function-docstring,redefined-outer-name
+# pylint: disable=missing-function-docstring,redefined-outer-name,unused-argument
 
 import pytest
 
@@ -18,7 +18,7 @@ def test_full_plan_includes_mutating_but_not_destructive():
     plan = brute_plan(dangerous=True, dangerous_full=True, include_destructive=False)
     methods = {m for _, m in plan}
     assert any(not is_read_method(m) for m in methods)  # has mutating
-    assert methods.isdisjoint(DESTRUCTIVE_METHODS)      # no destructive
+    assert methods.isdisjoint(DESTRUCTIVE_METHODS)  # no destructive
 
 
 def test_include_destructive_adds_destructive():
@@ -37,7 +37,8 @@ async def test_brute_surfaces_non_catalog_service():
         return responses.get((service, method), {"error": {"code": -32601}})
 
     report = await enumerate_device(
-        caller, device_info={"model": "x", "firmware_version": "1"},
+        caller,
+        device_info={"model": "x", "firmware_version": "1"},
         brute="dangerous",
     )
     hit = next((m for m in report.methods if m.service == "astrowarp"), None)
@@ -51,4 +52,6 @@ async def test_invalid_brute_value_raises():
         return {"result": {}}
 
     with pytest.raises(ValueError):
-        await enumerate_device(caller, device_info={"model": "x", "firmware_version": "1"}, brute="typo")
+        await enumerate_device(
+            caller, device_info={"model": "x", "firmware_version": "1"}, brute="typo"
+        )

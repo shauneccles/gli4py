@@ -7,14 +7,31 @@ from .catalog import is_read_method
 from .models import SshSurface  # noqa: F401  (used by ssh_discover in Task 8)
 
 _LUA_FUNC = re.compile(r"function\s+M\.([A-Za-z0-9_]+)")
-_LUA_ASSIGN = re.compile(r'M\.([A-Za-z0-9_]+)\s*=\s*function')
+_LUA_ASSIGN = re.compile(r"M\.([A-Za-z0-9_]+)\s*=\s*function")
 # .so/bytecode `strings` yield noise-tolerant method-name CANDIDATES; internal
 # helpers (e.g. `check_string_length`) that aren't real RPC methods are filtered
 # downstream by the HTTP probe (they classify ABSENT).  `check_` is kept because
 # `check_config` is a real method on several services (wg-client, ovpn-client).
-_VERB_PREFIXES = ("get_", "set_", "add_", "remove_", "del_", "list_", "check_",
-                  "start", "stop", "generate_", "export_", "clear_", "connect",
-                  "disconnect", "scan", "status", "info", "dump")
+_VERB_PREFIXES = (
+    "get_",
+    "set_",
+    "add_",
+    "remove_",
+    "del_",
+    "list_",
+    "check_",
+    "start",
+    "stop",
+    "generate_",
+    "export_",
+    "clear_",
+    "connect",
+    "disconnect",
+    "scan",
+    "status",
+    "info",
+    "dump",
+)
 _VALIDATOR_ENTRY = re.compile(r'\[\s*["\']([A-Za-z0-9_]+)["\']\s*\]\s*=\s*\{([^}]*)\}')
 _PARAM = re.compile(r'["\']([A-Za-z0-9_]+)["\']')
 
@@ -84,7 +101,7 @@ def _section(blob: str, tag: str) -> list[str]:
     return [ln.strip() for ln in rest.splitlines() if ln.strip()]
 
 
-async def ssh_discover(
+async def ssh_discover(  # pylint: disable=too-many-arguments,too-many-locals
     host: str,
     *,
     username: str = "root",
@@ -95,18 +112,23 @@ async def ssh_discover(
 ) -> SshSurface:
     """Read-only SSH recon -> SshSurface. Raises SshUnavailable on failure."""
     try:
-        import paramiko  # type: ignore[import-untyped]  # noqa: PLC0415
+        import paramiko  # noqa: PLC0415  # pylint: disable=import-outside-toplevel
     except ImportError as exc:  # pragma: no cover - exercised via integration env
         raise SshUnavailable("paramiko not installed (pip install 'gli4py[ssh]')") from exc
 
-    def _run() -> tuple[str, dict[str, str], dict[str, str]]:
+    def _run() -> tuple[str, dict[str, str], dict[str, str]]:  # pylint: disable=too-many-locals
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         try:
             client.connect(
-                host, port=port, username=username, password=password,
-                key_filename=key_filename, timeout=timeout,
-                look_for_keys=bool(key_filename), allow_agent=False,
+                host,
+                port=port,
+                username=username,
+                password=password,
+                key_filename=key_filename,
+                timeout=timeout,
+                look_for_keys=bool(key_filename),
+                allow_agent=False,
             )
         except Exception as exc:  # pylint: disable=broad-except
             raise SshUnavailable(f"SSH connect failed: {type(exc).__name__}: {exc}") from exc
@@ -127,11 +149,15 @@ async def ssh_discover(
             _i, vo, _e = client.exec_command(
                 "ls -1 /usr/share/gl-validator.d/ 2>/dev/null", timeout=timeout
             )
-            for vf in [x.strip() for x in vo.read().decode(errors="replace").splitlines() if x.strip()]:
+            for vf in [
+                x.strip() for x in vo.read().decode(errors="replace").splitlines() if x.strip()
+            ]:
                 _i2, vc, _e2 = client.exec_command(
                     f"cat /usr/share/gl-validator.d/{vf}", timeout=timeout
                 )
-                validator_sources[vf[:-4] if vf.endswith(".lua") else vf] = vc.read().decode(errors="replace")
+                validator_sources[vf[:-4] if vf.endswith(".lua") else vf] = vc.read().decode(
+                    errors="replace"
+                )
             return recon, handler_sources, validator_sources
         finally:
             client.close()
@@ -157,6 +183,11 @@ async def ssh_discover(
 
 
 __all__ = [
-    "parse_handlers", "parse_validators", "parse_account_acl", "is_read_method",
-    "SshUnavailable", "ssh_discover", "REMOTE_RECON",
+    "parse_handlers",
+    "parse_validators",
+    "parse_account_acl",
+    "is_read_method",
+    "SshUnavailable",
+    "ssh_discover",
+    "REMOTE_RECON",
 ]

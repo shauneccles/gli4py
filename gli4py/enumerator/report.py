@@ -57,10 +57,14 @@ def to_markdown(report: DeviceReport) -> str:
     ]
     for m in sorted(report.methods, key=lambda x: (x.service, x.method)):
         if m.status in _PRESENT:
-            lines.append(f"| {m.service} | {m.method} | {m.status} | {m.risk} | {m.covered_by or '—'} |")
+            lines.append(
+                f"| {m.service} | {m.method} | {m.status} | {m.risk} | {m.covered_by or '—'} |"
+            )
     lines += ["", "## Available but not yet wrapped by gli4py", ""]
     nw = _not_wrapped(report)
-    lines += [f"- `{m.service}.{m.method}`" for m in sorted(nw, key=lambda x: (x.service, x.method))] or ["- (none)"]
+    lines += [
+        f"- `{m.service}.{m.method}`" for m in sorted(nw, key=lambda x: (x.service, x.method))
+    ] or ["- (none)"]
     return "\n".join(lines) + "\n"
 
 
@@ -76,5 +80,7 @@ def summary_lines(report: DeviceReport) -> list[str]:
         "Counts: " + ", ".join(f"{k}={v}" for k, v in sorted(counts.items())),
         f"Not yet wrapped by gli4py ({len(nw)}):",
     ]
-    lines += [f"  - {m.service}.{m.method}" for m in sorted(nw, key=lambda x: (x.service, x.method))]
+    lines += [
+        f"  - {m.service}.{m.method}" for m in sorted(nw, key=lambda x: (x.service, x.method))
+    ]
     return lines

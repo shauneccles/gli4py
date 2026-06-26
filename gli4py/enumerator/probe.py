@@ -20,14 +20,18 @@ _SLUG = re.compile(r"[^a-z0-9.]+")
 
 def device_id(device: dict[str, Any]) -> str:
     """Slug `model_firmware` from a get_info dict, with fallbacks."""
-    model = device.get("model") or device.get("device_type") or device.get("board_info") or "unknown"
+    model = (
+        device.get("model") or device.get("device_type") or device.get("board_info") or "unknown"
+    )
     firmware = device.get("firmware_version") or "unknown"
     model_slug = _SLUG.sub("-", model.lower()).strip("-")
     firmware_slug = _SLUG.sub("-", firmware.lower()).strip("-")
     return f"{model_slug}_{firmware_slug}"
 
 
-async def _probe(caller: Caller, service: str, method: str) -> tuple[ProbeStatus, int | None, object]:
+async def _probe(
+    caller: Caller, service: str, method: str
+) -> tuple[ProbeStatus, int | None, object]:
     try:
         envelope = await caller(service, method, None)
     except Exception:  # pylint: disable=broad-except
@@ -72,7 +76,7 @@ def _catalog_targets() -> list[tuple[str, str, Risk]]:
     return targets
 
 
-async def enumerate_device(
+async def enumerate_device(  # pylint: disable=too-many-arguments,too-many-locals
     caller: Caller,
     *,
     redact_values: bool = True,
@@ -83,9 +87,7 @@ async def enumerate_device(
 ) -> DeviceReport:
     """Probe the read-only catalog surface and assemble a DeviceReport."""
     if brute not in {"off", "dangerous", "dangerous_full"}:
-        raise ValueError(
-            f"brute must be 'off', 'dangerous', or 'dangerous_full'; got {brute!r}"
-        )
+        raise ValueError(f"brute must be 'off', 'dangerous', or 'dangerous_full'; got {brute!r}")
 
     if device_info is None:
         status, _code, value = await _probe(caller, "system", "get_info")
@@ -150,13 +152,21 @@ async def enumerate_device(
                     status, code, value = ProbeStatus.OTHER, None, None  # don't call non-reads
                 methods.append(
                     MethodReport(
-                        service=service, method=method, status=status, error_code=code,
-                        risk=risk_of(method), discovered_by="ssh",
+                        service=service,
+                        method=method,
+                        status=status,
+                        error_code=code,
+                        risk=risk_of(method),
+                        discovered_by="ssh",
                         params=params_map.get(method),
                         schema=schema_of(value) if value is not None else None,
                         value=redact(value, enabled=redact_values) if value is not None else None,
                         covered_by=covered_by(service, method),
                     )
                 )
-        device_info = {**(device_info or {}), "accounts": ssh_surface.accounts, "features": ssh_surface.features}
+        device_info = {
+            **(device_info or {}),
+            "accounts": ssh_surface.accounts,
+            "features": ssh_surface.features,
+        }
     return DeviceReport(device=device_info or {}, methods=methods)

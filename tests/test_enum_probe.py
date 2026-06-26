@@ -1,5 +1,5 @@
 """Engine tests against a fake caller (no hardware)."""
-# pylint: disable=missing-function-docstring,redefined-outer-name
+# pylint: disable=missing-function-docstring,redefined-outer-name,unused-argument,import-outside-toplevel
 
 from gli4py.enumerator.models import ProbeStatus
 from gli4py.enumerator.probe import device_id, enumerate_device
@@ -7,7 +7,10 @@ from gli4py.enumerator.probe import device_id, enumerate_device
 
 def make_caller(responses):
     async def caller(service, method, args):  # noqa: ARG001
-        return responses.get((service, method), {"error": {"code": -32601, "message": "Method not found"}})
+        return responses.get(
+            (service, method), {"error": {"code": -32601, "message": "Method not found"}}
+        )
+
     return caller
 
 
@@ -16,7 +19,9 @@ async def test_enumerate_marks_available_absent_and_redacts():
         ("system", "get_info"): {"result": {"model": "mt6000", "firmware_version": "4.8.0"}},
         ("wg-server", "get_config"): {"result": {"port": 51820, "private_key": "SECRET"}},
     }
-    report = await enumerate_device(make_caller(responses), device_info={"model": "mt6000", "firmware_version": "4.8.0"})
+    report = await enumerate_device(
+        make_caller(responses), device_info={"model": "mt6000", "firmware_version": "4.8.0"}
+    )
     by = {(m.service, m.method): m for m in report.methods}
     assert by[("wg-server", "get_config")].status is ProbeStatus.AVAILABLE
     assert by[("wg-server", "get_config")].value == {"port": 51820, "private_key": "<redacted>"}
@@ -35,12 +40,15 @@ async def test_only_read_methods_are_probed():
     await enumerate_device(caller, device_info={"model": "x", "firmware_version": "1"})
     assert seen, "should have probed something"
     from gli4py.enumerator.catalog import is_read_method  # local import keeps the test focused
+
     assert all(is_read_method(m) for _, m in seen)
 
 
 async def test_coverage_annotation():
     responses = {("system", "get_info"): {"result": {"model": "x", "firmware_version": "1"}}}
-    report = await enumerate_device(make_caller(responses), device_info={"model": "x", "firmware_version": "1"})
+    report = await enumerate_device(
+        make_caller(responses), device_info={"model": "x", "firmware_version": "1"}
+    )
     info = next(m for m in report.methods if (m.service, m.method) == ("system", "get_info"))
     assert info.covered_by == "router_info"
 

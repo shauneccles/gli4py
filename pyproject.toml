@@ -15,6 +15,14 @@ dependencies = [
     "pydantic>=2.0",
 ]
 
+[project.scripts]
+gli4py-enumerate = "gli4py.enumerator.cli:main"
+
+[project.optional-dependencies]
+cli = ["python-dotenv>=1.0"]
+ssh = ["paramiko>=3"]
+enumerate = ["gli4py[cli,ssh]"]
+
 [project.urls]
 Homepage = "https://github.com/HarvsG/gli4py"
 
@@ -54,5 +62,5 @@ strict = true
 files = ["gli4py"]
 
 [[tool.mypy.overrides]]
-module = ["uplink", "passlib", "passlib.*"]
+module = ["uplink", "passlib", "passlib.*", "paramiko"]
 ignore_missing_imports = true
