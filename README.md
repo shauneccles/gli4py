@@ -10,6 +10,28 @@ I thought it would be handy to develop a python 3 wrapper for the API for easy i
 ## Installation
 `pip install gli4py`
 
+### Enumerating a device
+
+Install with one of the optional extras:
+```bash
+pip install 'gli4py[enumerate]'  # or [ssh], [cli]
+```
+
+Configure via `.env` file (or use `--host`, `--username`, `--password` flags):
+```
+GLINET_HOST=http://192.168.8.1
+GLINET_USERNAME=root
+GLINET_PASSWORD=<your_password>
+```
+
+Run `uv run gli4py-enumerate` (or just `gli4py-enumerate` once installed). It writes `docs/devices/<id>.json` and `.md` files and prints a summary.
+
+**SSH auto-discovery** runs automatically when SSH credentials work (web password typically serves as SSH root), reading the device's handler dir, validators, and oui.db directly for ground-truth. Disable with `--no-ssh`.
+
+**Brute-force tiers** (`--dangerous` / `--dangerous-full` / `--include-destructive`) probe mutating methods. Read-only by default; `--dangerous-full` prompts for confirmation (`--yes` to skip). Destructive methods require `--include-destructive`.
+
+Use `--unredacted` to capture raw credential values (default redacts). **Do NOT commit unredacted output.**
+
 ## Dev setup
 1. Clone the repo
 2. Ensure you have Python 3.11 or greater (`python3 -V`) and install [uv](https://docs.astral.sh/uv/).
