@@ -1,6 +1,8 @@
 """Brute-force planning + a fake-caller brute run."""
 # pylint: disable=missing-function-docstring,redefined-outer-name
 
+import pytest
+
 from gli4py.enumerator.catalog import DESTRUCTIVE_METHODS, is_read_method
 from gli4py.enumerator.models import ProbeStatus
 from gli4py.enumerator.probe import brute_plan, enumerate_device
@@ -42,3 +44,11 @@ async def test_brute_surfaces_non_catalog_service():
     assert hit is not None
     assert hit.discovered_by == "brute"
     assert hit.status is ProbeStatus.AVAILABLE
+
+
+async def test_invalid_brute_value_raises():
+    async def caller(service, method, args):  # noqa: ARG001
+        return {"result": {}}
+
+    with pytest.raises(ValueError):
+        await enumerate_device(caller, device_info={"model": "x", "firmware_version": "1"}, brute="typo")

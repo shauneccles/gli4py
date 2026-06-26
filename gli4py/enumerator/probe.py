@@ -81,6 +81,11 @@ async def enumerate_device(
     include_destructive: bool = False,
 ) -> DeviceReport:
     """Probe the read-only catalog surface and assemble a DeviceReport."""
+    if brute not in {"off", "dangerous", "dangerous_full"}:
+        raise ValueError(
+            f"brute must be 'off', 'dangerous', or 'dangerous_full'; got {brute!r}"
+        )
+
     if device_info is None:
         status, _code, value = await _probe(caller, "system", "get_info")
         device_info = value if status is ProbeStatus.AVAILABLE and isinstance(value, dict) else {}
