@@ -3,7 +3,7 @@
 import re
 from typing import Any
 
-from .catalog import CATALOG, COMMON_READ_METHODS, is_read_method, risk_of
+from .catalog import CATALOG, COMMON_READ_METHODS, is_read_method
 from .classify import classify
 from .coverage import covered_by
 from .models import Caller, DeviceReport, MethodReport, ProbeStatus, Risk
@@ -24,8 +24,8 @@ def device_id(device: dict[str, Any]) -> str:
 async def _probe(caller: Caller, service: str, method: str) -> tuple[ProbeStatus, int | None, object]:
     try:
         envelope = await caller(service, method, None)
-    except Exception as exc:  # pylint: disable=broad-except
-        return ProbeStatus.UNREACHABLE, None, {"error": f"{type(exc).__name__}: {exc}"}
+    except Exception:  # pylint: disable=broad-except
+        return ProbeStatus.UNREACHABLE, None, None
     result = classify(envelope)
     value = envelope.get("result") if result.status is ProbeStatus.AVAILABLE else None
     return result.status, result.error_code, value
@@ -67,7 +67,7 @@ async def enumerate_device(
                 method=method,
                 status=status,
                 error_code=code,
-                risk=risk_of(method) if risk is None else risk,
+                risk=risk,
                 discovered_by="catalog",
                 params=None,
                 schema=schema_of(value) if value is not None else None,
