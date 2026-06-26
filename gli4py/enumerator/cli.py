@@ -57,11 +57,15 @@ def output_dir_for(args: argparse.Namespace, *, redacted: bool) -> str:
 
 
 def _load_env(env_file: str | None) -> None:
+    """Load a .env file if python-dotenv is available (optional [cli] extra)."""
     try:
-        from dotenv import load_dotenv  # noqa: PLC0415
+        from dotenv import load_dotenv  # pylint: disable=import-outside-toplevel
     except ImportError:
         return
-    load_dotenv(env_file) if env_file else load_dotenv()
+    if env_file:
+        load_dotenv(env_file)
+    else:
+        load_dotenv()
 
 
 def _config(args: argparse.Namespace) -> dict[str, str]:
