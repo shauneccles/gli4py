@@ -6,7 +6,7 @@ from typing import Any
 from .catalog import CATALOG, COMMON_READ_METHODS, DESTRUCTIVE_METHODS, is_read_method, risk_of
 from .classify import classify
 from .coverage import covered_by
-from .models import Caller, DeviceReport, MethodReport, ProbeStatus, Risk
+from .models import Caller, DeviceReport, MethodReport, ProbeStatus, Risk, SshSurface
 from .redact import redact, schema_of
 from .wordlist import (
     ACTIVE_READ_SEEDS,
@@ -79,6 +79,7 @@ async def enumerate_device(
     device_info: dict[str, Any] | None = None,
     brute: str = "off",
     include_destructive: bool = False,
+    ssh_surface: SshSurface | None = None,
 ) -> DeviceReport:
     """Probe the read-only catalog surface and assemble a DeviceReport."""
     if brute not in {"off", "dangerous", "dangerous_full"}:
@@ -135,4 +136,27 @@ async def enumerate_device(
                     covered_by=covered_by(service, method),
                 )
             )
-    return DeviceReport(device=device_info, methods=methods)
+    probed = {(m.service, m.method) for m in methods}
+    if ssh_surface is not None:
+        for service, smethods in ssh_surface.methods.items():
+            params_map = ssh_surface.params.get(service, {})
+            for method in smethods:
+                if (service, method) in probed:
+                    continue
+                probed.add((service, method))
+                if is_read_method(method):
+                    status, code, value = await _probe(caller, service, method)
+                else:
+                    status, code, value = ProbeStatus.OTHER, None, None  # don't call non-reads
+                methods.append(
+                    MethodReport(
+                        service=service, method=method, status=status, error_code=code,
+                        risk=risk_of(method), discovered_by="ssh",
+                        params=params_map.get(method),
+                        schema=schema_of(value) if value is not None else None,
+                        value=redact(value, enabled=redact_values) if value is not None else None,
+                        covered_by=covered_by(service, method),
+                    )
+                )
+        device_info = {**(device_info or {}), "accounts": ssh_surface.accounts, "features": ssh_surface.features}
+    return DeviceReport(device=device_info or {}, methods=methods)

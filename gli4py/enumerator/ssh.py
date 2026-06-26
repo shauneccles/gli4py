@@ -1,5 +1,6 @@
-"""SSH ground-truth discovery: pure parsers + (later) paramiko I/O."""
+"""SSH ground-truth discovery: pure parsers + paramiko I/O."""
 
+import asyncio
 import re
 
 from .catalog import is_read_method
@@ -61,4 +62,101 @@ def parse_account_acl(rows: list[tuple[str, str]]) -> tuple[list[dict[str, str]]
     return accounts, root_full
 
 
-__all__ = ["parse_handlers", "parse_validators", "parse_account_acl", "is_read_method"]
+REMOTE_RECON = r"""
+echo '@@HANDLERS@@'; ls -1 /usr/lib/oui-httpd/rpc/ 2>/dev/null
+echo '@@UBUS@@'; ubus list 2>/dev/null
+echo '@@ACCOUNTS@@'; sqlite3 /etc/oui/oui.db 'SELECT username||"|"||acl FROM account;' 2>/dev/null
+echo '@@FEATURES@@'; ls -1 /usr/share/oui/menu.d/ 2>/dev/null | sed 's/.json$//'
+echo '@@END@@'
+"""
+
+
+class SshUnavailable(RuntimeError):
+    """SSH could not be used (unreachable, auth failed, or paramiko missing)."""
+
+
+def _section(blob: str, tag: str) -> list[str]:
+    body = blob.split(f"@@{tag}@@", 1)
+    if len(body) < 2:
+        return []
+    rest = body[1]
+    rest = re.split(r"@@[A-Z]+@@", rest, maxsplit=1)[0]
+    return [ln.strip() for ln in rest.splitlines() if ln.strip()]
+
+
+async def ssh_discover(
+    host: str,
+    *,
+    username: str = "root",
+    password: str | None = None,
+    key_filename: str | None = None,
+    port: int = 22,
+    timeout: float = 12.0,
+) -> SshSurface:
+    """Read-only SSH recon -> SshSurface. Raises SshUnavailable on failure."""
+    try:
+        import paramiko  # type: ignore[import-untyped]  # noqa: PLC0415
+    except ImportError as exc:  # pragma: no cover - exercised via integration env
+        raise SshUnavailable("paramiko not installed (pip install 'gli4py[ssh]')") from exc
+
+    def _run() -> tuple[str, dict[str, str], dict[str, str]]:
+        client = paramiko.SSHClient()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        try:
+            client.connect(
+                host, port=port, username=username, password=password,
+                key_filename=key_filename, timeout=timeout,
+                look_for_keys=bool(key_filename), allow_agent=False,
+            )
+        except Exception as exc:  # pylint: disable=broad-except
+            raise SshUnavailable(f"SSH connect failed: {type(exc).__name__}: {exc}") from exc
+        try:
+            _in, out, _err = client.exec_command(REMOTE_RECON, timeout=timeout)
+            recon = out.read().decode(errors="replace")
+            handler_names = _section(recon, "HANDLERS")
+            handler_sources: dict[str, str] = {}
+            for name in handler_names:
+                cmd = (
+                    f"if grep -q 'function M\\.' /usr/lib/oui-httpd/rpc/{name} 2>/dev/null;"
+                    f" then cat /usr/lib/oui-httpd/rpc/{name};"
+                    f" else strings /usr/lib/oui-httpd/rpc/{name} 2>/dev/null; fi"
+                )
+                _i, o, _e = client.exec_command(cmd, timeout=timeout)
+                handler_sources[name] = o.read().decode(errors="replace")
+            validator_sources: dict[str, str] = {}
+            _i, vo, _e = client.exec_command(
+                "ls -1 /usr/share/gl-validator.d/ 2>/dev/null", timeout=timeout
+            )
+            for vf in [x.strip() for x in vo.read().decode(errors="replace").splitlines() if x.strip()]:
+                _i2, vc, _e2 = client.exec_command(
+                    f"cat /usr/share/gl-validator.d/{vf}", timeout=timeout
+                )
+                validator_sources[vf[:-4] if vf.endswith(".lua") else vf] = vc.read().decode(errors="replace")
+            return recon, handler_sources, validator_sources
+        finally:
+            client.close()
+
+    recon, handler_sources, validator_sources = await asyncio.to_thread(_run)
+
+    handlers = parse_handlers(_section(recon, "HANDLERS"), handler_sources)
+    validators = parse_validators(validator_sources)
+    for service, methods in validators.items():
+        handlers.setdefault(service, [])
+        handlers[service] = sorted(set(handlers[service]) | set(methods))
+    accounts, _root_full = parse_account_acl(
+        [tuple(row.split("|", 1)) for row in _section(recon, "ACCOUNTS") if "|" in row]  # type: ignore[misc]
+    )
+    return SshSurface(
+        services=sorted(handlers),
+        methods=handlers,
+        params=validators,
+        accounts=accounts,
+        features=_section(recon, "FEATURES"),
+        ubus=_section(recon, "UBUS"),
+    )
+
+
+__all__ = [
+    "parse_handlers", "parse_validators", "parse_account_acl", "is_read_method",
+    "SshUnavailable", "ssh_discover", "REMOTE_RECON",
+]
