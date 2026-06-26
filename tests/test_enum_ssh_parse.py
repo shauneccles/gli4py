@@ -58,6 +58,16 @@ def test_parse_validators_extracts_methods_and_params():
     assert out["tor"]["get_config"] == []
 
 
+def test_parse_validators_preserves_underscore_service_name():
+    validators = {
+        "flow_statistics": 'local M = { ["get_statistics_rule"] = { "period" } }\nreturn M',
+    }
+    out = parse_validators(validators)
+    assert "flow_statistics" in out
+    assert "flow-statistics" not in out
+    assert out["flow_statistics"]["get_statistics_rule"] == ["period"]
+
+
 def test_parse_account_acl_root_full():
     accounts, root_full = parse_account_acl([("root", "root"), ("guest", "limited")])
     assert {"username": "root", "acl": "root"} in accounts

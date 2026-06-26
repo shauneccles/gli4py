@@ -2,6 +2,7 @@
 
 import asyncio
 import re
+import shlex
 
 from .catalog import is_read_method
 from .models import SshSurface  # noqa: F401  (used by ssh_discover in Task 8)
@@ -68,7 +69,7 @@ def parse_validators(sources: dict[str, str]) -> dict[str, dict[str, list[str]]]
         for method, body in _VALIDATOR_ENTRY.findall(text):
             methods[method] = _PARAM.findall(body)
         if methods:
-            out[service.replace("_", "-")] = methods
+            out[service] = methods
     return out
 
 
@@ -138,10 +139,11 @@ async def ssh_discover(  # pylint: disable=too-many-arguments,too-many-locals
             handler_names = _section(recon, "HANDLERS")
             handler_sources: dict[str, str] = {}
             for name in handler_names:
+                qpath = shlex.quote(f"/usr/lib/oui-httpd/rpc/{name}")
                 cmd = (
-                    f"if grep -q 'function M\\.' /usr/lib/oui-httpd/rpc/{name} 2>/dev/null;"
-                    f" then cat /usr/lib/oui-httpd/rpc/{name};"
-                    f" else strings /usr/lib/oui-httpd/rpc/{name} 2>/dev/null; fi"
+                    f"if grep -q 'function M\\.' {qpath} 2>/dev/null;"
+                    f" then cat {qpath};"
+                    f" else strings {qpath} 2>/dev/null; fi"
                 )
                 _i, o, _e = client.exec_command(cmd, timeout=timeout)
                 handler_sources[name] = o.read().decode(errors="replace")
@@ -153,7 +155,7 @@ async def ssh_discover(  # pylint: disable=too-many-arguments,too-many-locals
                 x.strip() for x in vo.read().decode(errors="replace").splitlines() if x.strip()
             ]:
                 _i2, vc, _e2 = client.exec_command(
-                    f"cat /usr/share/gl-validator.d/{vf}", timeout=timeout
+                    f"cat {shlex.quote(f'/usr/share/gl-validator.d/{vf}')}", timeout=timeout
                 )
                 validator_sources[vf[:-4] if vf.endswith(".lua") else vf] = vc.read().decode(
                     errors="replace"
