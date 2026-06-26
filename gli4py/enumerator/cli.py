@@ -7,6 +7,7 @@ import sys
 from typing import Any
 
 import aiohttp
+from uplink import AiohttpClient
 
 from ..glinet import GLinet
 from .models import Caller, DeviceReport
@@ -102,10 +103,10 @@ async def _run(args: argparse.Namespace) -> DeviceReport:
         except SshUnavailable as exc:
             print(f"[ssh] skipped: {exc}", file=sys.stderr)
 
-    glinet = GLinet(base_url=rpc_url)
-    await glinet.login(cfg["username"], cfg["password"])
-    sid = glinet.sid or ""
     async with aiohttp.ClientSession() as session:
+        glinet = GLinet(base_url=rpc_url, client=AiohttpClient(session=session))
+        await glinet.login(cfg["username"], cfg["password"])
+        sid = glinet.sid or ""
         caller = _make_caller(session, rpc_url, sid)
         info_env = await caller("system", "get_info", None)
         device_info = info_env.get("result") if isinstance(info_env.get("result"), dict) else {}
