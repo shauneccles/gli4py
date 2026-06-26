@@ -7,7 +7,10 @@ from .models import SshSurface  # noqa: F401  (used by ssh_discover in Task 8)
 
 _LUA_FUNC = re.compile(r"function\s+M\.([A-Za-z0-9_]+)")
 _LUA_ASSIGN = re.compile(r'M\.([A-Za-z0-9_]+)\s*=\s*function')
-_LUA_KEY = re.compile(r'\[\s*["\']([A-Za-z0-9_]+)["\']\s*\]')
+# .so/bytecode `strings` yield noise-tolerant method-name CANDIDATES; internal
+# helpers (e.g. `check_string_length`) that aren't real RPC methods are filtered
+# downstream by the HTTP probe (they classify ABSENT).  `check_` is kept because
+# `check_config` is a real method on several services (wg-client, ovpn-client).
 _VERB_PREFIXES = ("get_", "set_", "add_", "remove_", "del_", "list_", "check_",
                   "start", "stop", "generate_", "export_", "clear_", "connect",
                   "disconnect", "scan", "status", "info", "dump")

@@ -39,6 +39,7 @@ def test_parse_validators_extracts_methods_and_params():
     out = parse_validators(validators)
     assert "set_config" in out["tor"]
     assert out["tor"]["set_config"] == ["enable", "manual"]
+    assert out["tor"]["get_config"] == []
 
 
 def test_parse_account_acl_root_full():
