@@ -52,3 +52,13 @@ def test_coverage_lookup():
     assert covered_by("system", "get_info") == "router_info"
     assert covered_by("clients", "get_list") == "list_all_clients"
     assert covered_by("nonexistent", "get_x") is None
+
+
+def test_multiword_and_noun_reads_are_read():
+    for s, m in (("system", "disk_info"), ("network", "routes"),
+                 ("network", "routes6"), ("ui", "load_locales")):
+        assert is_read_method(m), f"{s}.{m} should be a read"
+        assert CATALOG[s][m] is Risk.READ
+    # mutating first-token methods are still not reads despite a read word later
+    assert not is_read_method("set_info")
+    assert not is_read_method("clear_statistics")

@@ -4,11 +4,10 @@ Ported from docs/superpowers/specs/2026-06-26-glinet-api-catalog.md.
 
 Tag mapping: R=READ, W=WRITE, D=DANGEROUS, A=ACTIVE.
 Edge-case adjustments (integrity rule — READ tags must pass is_read_method):
-  - system.disk_info: doc says R but first token "disk" is not a READ verb → W.
-  - network.routes / routes6: doc says R but "routes" is not a READ verb → W.
-  - ovpn-server.export_config: doc says R but "export" is in MUTATING_VERBS → W.
-  - logread.export_logs: doc says R but "export" is in MUTATING_VERBS → W.
-  - ui.load_locales: doc says R but "load" is not in READ_VERBS → W.
+  - ovpn-server.export_config: doc says R but "export" is in MUTATING_VERBS → W
+    (file-generation side effect).
+  - logread.export_logs: doc says R but "export" is in MUTATING_VERBS → W
+    (file-generation side effect).
 """
 
 from .models import Risk
@@ -18,7 +17,7 @@ R, W, D, A = Risk.READ, Risk.WRITE, Risk.DANGEROUS, Risk.ACTIVE
 CATALOG: dict[str, dict[str, Risk]] = {
     # ── Core system ────────────────────────────────────────────────────────
     "system": {
-        "get_info": R, "get_status": R, "get_load": R, "disk_info": W,
+        "get_info": R, "get_status": R, "get_load": R, "disk_info": R,
         "get_timezone_config": R, "get_unixtime": R, "get_httpd_mem_status": R,
         "get_security_policy": R, "get_percent": R,
         "set_timezone_config": W, "set_security_policy": W, "add_user": W,
@@ -49,8 +48,7 @@ CATALOG: dict[str, dict[str, Risk]] = {
     # ── Network ────────────────────────────────────────────────────────────
     "network": {
         "get_arp_list": R, "get_dhcp_leases": R, "check_wan_cable": R,
-        # "routes"/"routes6" first token is "routes" — not a READ verb → W
-        "routes": W, "routes6": W,
+        "routes": R, "routes6": R,
     },
     "cable": {
         "get_status": R, "get_config": R,
@@ -247,8 +245,7 @@ CATALOG: dict[str, dict[str, Risk]] = {
     # ── UI / cloud ─────────────────────────────────────────────────────────
     "ui": {
         "get_lang": R, "get_menu_list": R, "check_initialized": R,
-        # "load_locales" first token "load" is not in READ_VERBS → downgrade to W
-        "load_locales": W,
+        "load_locales": R,
         "set_lang": W, "init": D,
     },
     "cloud": {
@@ -333,8 +330,9 @@ COMMON_READ_METHODS: tuple[str, ...] = (
 )
 
 READ_VERBS: frozenset[str] = frozenset(
-    {"get", "list", "check", "status", "info", "dump", "state"}
+    {"get", "list", "check", "status", "info", "dump", "state", "load"}
 )
+KNOWN_READ_NAMES: frozenset[str] = frozenset({"routes", "routes6"})
 MUTATING_VERBS: frozenset[str] = frozenset({
     "set", "add", "del", "delete", "remove", "start", "stop", "restart",
     "enable", "disable", "connect", "disconnect", "up", "down", "commit",
@@ -354,13 +352,15 @@ def _first_token(method: str) -> str:
 
 
 def is_read_method(method: str) -> bool:
-    """True iff the method name is a read verb and not a mutating one."""
+    """True iff the method name is a read (no mutation), per name heuristics."""
     if method in DESTRUCTIVE_METHODS:
         return False
-    token = _first_token(method)
-    if token in MUTATING_VERBS or method in MUTATING_VERBS:
+    if method in KNOWN_READ_NAMES:
+        return True
+    tokens = method.split("_")
+    if tokens[0] in MUTATING_VERBS or method in MUTATING_VERBS:
         return False
-    return token in READ_VERBS
+    return any(token in READ_VERBS for token in tokens)
 
 
 def risk_of(method: str) -> Risk:
