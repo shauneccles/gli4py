@@ -285,3 +285,20 @@ object.."."..method)` against `/etc/oui/oui.db`. `no-auth-methods` (from `/etc/c
 `network.device`, `network.interface(.{lan,wan,wwan,wgserver,secondwan,loopback})`, `network.wireless`,
 `rc`, `repeater`, `service`, `session`, `sms_manager`, `system`, `uci`, `mtk-wifi`, many `hotplug.*`.
 
+**Validator schemas — `/usr/share/gl-validator.d/*.lua` (≈26, method names + param schemas):**
+`cable clients cloud dns firewall lan modem mptun nas-web netifyd netmode ovpn-client ovpn-server
+ovpn_client parental-control plugins repeater s2s sms-forward system ui vpn-client wg-client wg-server
+wg_client wifi`. (`netifyd` = the DPI engine — another service.) Richest source for `(method, params)`.
+
+**flow_statistics methods** (from bytecode `strings`): `get_flow_statistics` R · `get_app_flow_statistics` R ·
+`get_top_app_flow_statistics` R · `get_statistics_rule` R · `set_statistics_rule` W · `clear_statistics` W
+(data in `/tmp/traffic_data.db`, app metadata `/etc/netifyd/app-metadata.json`). This is the #2 "throughput" feature.
+
+**Auth/ACL model — `/etc/oui/oui.db`:** single table `account(username TEXT PK, acl TEXT)`; on the test device
+`root → root`. `rpc.lua`: `M.access(scope, entry)` short-circuits **`aclgroup == "root"` ⇒ always allowed**;
+else `db.get_perm(aclgroup, scope, entry)`. So a root login enumerates the full surface; per-group
+`object.method` grants only constrain limited accounts. Read via on-device `sqlite3` (present) or SFTP+local parse.
+`no-auth-methods` (from `/etc/config/oui-httpd`): `ui {get_lang, load_locales, check_initialized, init}`,
+`system {get_timezone_list}`. Read-classification hint from `rpc.lua`: methods containing `get`/`load`/`check`
+are treated as reads (no NOTICE log) — matches our READ verb heuristic.
+
