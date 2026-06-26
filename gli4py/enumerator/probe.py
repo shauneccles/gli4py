@@ -3,11 +3,17 @@
 import re
 from typing import Any
 
-from .catalog import CATALOG, COMMON_READ_METHODS, is_read_method
+from .catalog import CATALOG, COMMON_READ_METHODS, DESTRUCTIVE_METHODS, is_read_method, risk_of
 from .classify import classify
 from .coverage import covered_by
 from .models import Caller, DeviceReport, MethodReport, ProbeStatus, Risk
 from .redact import redact, schema_of
+from .wordlist import (
+    ACTIVE_READ_SEEDS,
+    MUTATING_METHOD_SEEDS,
+    READ_METHOD_SEEDS,
+    SERVICE_SEEDS,
+)
 
 _SLUG = re.compile(r"[^a-z0-9.]+")
 
@@ -31,6 +37,26 @@ async def _probe(caller: Caller, service: str, method: str) -> tuple[ProbeStatus
     return result.status, result.error_code, value
 
 
+def brute_plan(
+    *, dangerous: bool, dangerous_full: bool, include_destructive: bool
+) -> list[tuple[str, str]]:
+    """The (service, method) pairs the brute pass will try."""
+    if not dangerous:
+        return []
+    methods: list[str] = list(READ_METHOD_SEEDS)
+    if dangerous_full:
+        methods += list(ACTIVE_READ_SEEDS) + list(MUTATING_METHOD_SEEDS)
+    methods = [m for m in methods if include_destructive or m not in DESTRUCTIVE_METHODS]
+    seen: set[tuple[str, str]] = set()
+    plan: list[tuple[str, str]] = []
+    for service in SERVICE_SEEDS:
+        for method in methods:
+            if (service, method) not in seen:
+                seen.add((service, method))
+                plan.append((service, method))
+    return plan
+
+
 def _catalog_targets() -> list[tuple[str, str, Risk]]:
     targets: list[tuple[str, str, Risk]] = []
     seen: set[tuple[str, str]] = set()
@@ -51,6 +77,8 @@ async def enumerate_device(
     *,
     redact_values: bool = True,
     device_info: dict[str, Any] | None = None,
+    brute: str = "off",
+    include_destructive: bool = False,
 ) -> DeviceReport:
     """Probe the read-only catalog surface and assemble a DeviceReport."""
     if device_info is None:
@@ -75,4 +103,31 @@ async def enumerate_device(
                 covered_by=covered_by(service, method),
             )
         )
+    probed = {(m.service, m.method) for m in methods}
+    if brute != "off":
+        plan = brute_plan(
+            dangerous=True,
+            dangerous_full=(brute == "dangerous_full"),
+            include_destructive=include_destructive,
+        )
+        for service, method in plan:
+            if (service, method) in probed:
+                continue
+            status, code, value = await _probe(caller, service, method)
+            if status is ProbeStatus.ABSENT:
+                continue  # only record hits
+            methods.append(
+                MethodReport(
+                    service=service,
+                    method=method,
+                    status=status,
+                    error_code=code,
+                    risk=risk_of(method),
+                    discovered_by="brute",
+                    params=None,
+                    schema=schema_of(value) if value is not None else None,
+                    value=redact(value, enabled=redact_values) if value is not None else None,
+                    covered_by=covered_by(service, method),
+                )
+            )
     return DeviceReport(device=device_info, methods=methods)
