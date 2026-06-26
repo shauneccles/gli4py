@@ -26,17 +26,26 @@ SO_WG = "\n".join(
 
 
 def test_parse_handlers_lua_and_so_with_dedup():
-    listing = ["tor", "wg-client.so", "wg_client"]
-    sources = {"tor": LUA_TOR, "wg-client.so": SO_WG, "wg_client": ""}
+    listing = ["tor", "wg-client.so", "wg_client", "flow_statistics"]
+    sources = {
+        "tor": LUA_TOR,
+        "wg-client.so": SO_WG,
+        "wg_client": "",
+        "flow_statistics": "get_flow_statistics\nset_flow_statistics\n",
+    }
     out = parse_handlers(listing, sources)
     assert out["tor"] == sorted(["get_config", "set_config", "get_status"])
-    # .so/underscore collapse to the hyphenated service
+    # hyphenated .so keeps its hyphenated name; empty underscore shim is dropped
     assert "wg-client" in out
     assert "wg_client" not in out and "wg-client.so" not in out
     assert "get_all_config_list" in out["wg-client"]
     assert "set_config" in out["wg-client"]
     # obvious noise filtered (not a known verb prefix)
     assert "xyzzy_internal" not in out["wg-client"]
+    # underscore-named services preserve their wire name (no _ -> - mangling)
+    assert "flow_statistics" in out
+    assert "flow-statistics" not in out
+    assert "get_flow_statistics" in out["flow_statistics"]
 
 
 def test_parse_validators_extracts_methods_and_params():

@@ -37,8 +37,8 @@ _PARAM = re.compile(r'["\']([A-Za-z0-9_]+)["\']')
 
 
 def _canonical_service(name: str) -> str:
-    base = name[:-3] if name.endswith(".so") else name
-    return base.replace("_", "-")
+    """The wire service name is the handler filename minus any .so suffix."""
+    return name[:-3] if name.endswith(".so") else name
 
 
 def _looks_like_method(token: str) -> bool:
