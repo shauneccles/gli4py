@@ -65,9 +65,14 @@ function render() {
 }
 
 async function loadDevice(id) {
-  const res = await fetch(`data/devices/${id}.json`);
-  current = await res.json();
-  render();
+  try {
+    const res = await fetch(`data/devices/${id}.json`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    current = await res.json();
+    render();
+  } catch (err) {
+    els.results.innerHTML = "<p class='empty'>Could not load this device's data.</p>";
+  }
 }
 
 async function loadManifest() {
