@@ -2,6 +2,7 @@
 # pylint: disable=missing-function-docstring
 
 import json
+import re
 from pathlib import Path
 
 SITE = Path(__file__).resolve().parent.parent / "site"
@@ -25,7 +26,11 @@ def test_app_js_fetches_relative_data_paths():
 def test_sample_data_present_and_sanitized():
     manifest = json.loads((SITE / "data" / "index.json").read_text(encoding="utf-8"))
     assert manifest["devices"], "expected committed sample data"
+    mac_re = re.compile(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}")
     for entry in manifest["devices"]:
         dev = json.loads((SITE / "data" / "devices" / f"{entry['id']}.json").read_text(encoding="utf-8"))
         assert "mac" not in dev and "sn" not in dev and "sn_bak" not in dev
-        assert '"value"' not in json.dumps(dev)
+        for service in dev["services"].values():
+            for rec in service.values():
+                assert "value" not in rec  # method-level response value is dropped
+        assert not mac_re.search(json.dumps(dev))  # no real device MAC value published
