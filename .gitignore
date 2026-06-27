@@ -126,12 +126,6 @@ venv.bak/
 # Rope project settings
 .ropeproject
 
-# mkdocs documentation
-/site
-# BUT: allow site/data/ (sanitized API dataset) to be committed
-!/site/data/
-!/site/data/**
-
 # mypy
 .mypy_cache/
 .dmypy.json

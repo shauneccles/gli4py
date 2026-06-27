@@ -280,6 +280,7 @@
               "last_update_rate": "int",
               "limit_rx": "int",
               "limit_tx": "int",
+              "mac": "str",
               "name": "str",
               "online": "bool",
               "online_time": "int",
@@ -1186,6 +1187,7 @@
           "static_bind_list": [
             {
               "ip": "str",
+              "mac": "str",
               "name": "str"
             }
           ]
@@ -1465,7 +1467,8 @@
             "support_pin_count": "bool",
             "supports_ip_type": [
               {
-                "label": "str"
+                "label": "str",
+                "value": "int"
               }
             ],
             "supports_rrc_seg": "bool",
@@ -1804,7 +1807,8 @@
           "entries": [
             {
               "device": "str",
-              "ip": "str"
+              "ip": "str",
+              "mac": "str"
             }
           ]
         },
@@ -2819,7 +2823,10 @@
           },
           "hardware_version": "str",
           "hidden_features": "list",
+          "mac": "str",
           "model": "str",
+          "sn": "str",
+          "sn_bak": "str",
           "software_feature": {
             "adguard": "bool",
             "astrowarp_lite": "bool",
@@ -3189,6 +3196,7 @@
           "inited_agent": "bool",
           "inited_internet": "bool",
           "initialized": "bool",
+          "mac": "str",
           "model": "str",
           "security_rule": "int",
           "support_screen_init": "bool",
@@ -3231,7 +3239,8 @@
           "list": [
             {
               "id": "int",
-              "label": "str"
+              "label": "str",
+              "value": "str"
             }
           ]
         },
