@@ -19,6 +19,21 @@ _METHOD_FIELDS = ("status", "error_code", "risk", "discovered_by", "covered_by",
 _PRESENT = ("available", "needs_params")
 
 
+def _sanitize_schema(schema: Any) -> Any:
+    """Recursively remove sensitive keys (mac/sn/sn_bak/value) from schema dicts/lists."""
+    if isinstance(schema, dict):
+        # Remove keys that are sensitive identifiers or response values
+        return {
+            k: _sanitize_schema(v)
+            for k, v in schema.items()
+            if k not in ("mac", "sn", "sn_bak", "value")
+        }
+    elif isinstance(schema, list):
+        return [_sanitize_schema(item) for item in schema]
+    else:
+        return schema
+
+
 def project_report(raw: dict[str, Any], device_id_str: str) -> dict[str, Any]:
     """Project a raw enumerator report to the publishable, sanitized surface."""
     device = raw.get("device", {})
@@ -26,13 +41,15 @@ def project_report(raw: dict[str, Any], device_id_str: str) -> dict[str, Any]:
     for field in _DEVICE_FIELDS:
         if field in device:
             out[field] = device[field]
-    out["services"] = {
-        service: {
-            method: {field: rec.get(field) for field in _METHOD_FIELDS}
-            for method, rec in methods.items()
-        }
-        for service, methods in raw.get("services", {}).items()
-    }
+    out["services"] = {}
+    for service, methods in raw.get("services", {}).items():
+        out["services"][service] = {}
+        for method, rec in methods.items():
+            method_data = {field: rec.get(field) for field in _METHOD_FIELDS}
+            # Sanitize schema to remove 'value' keys
+            if "schema" in method_data and method_data["schema"] is not None:
+                method_data["schema"] = _sanitize_schema(method_data["schema"])
+            out["services"][service][method] = method_data
     return out
 
 
