@@ -111,13 +111,22 @@ def test_build_empty_reports(tmp_path):
 def test_needs_params_counts_as_present():
     raw = {
         "device": {"model": "x", "firmware_version": "1"},
-        "services": {"svc": {"m": {
-            "status": "needs_params", "error_code": -32602, "risk": "read",
-            "discovered_by": "catalog", "covered_by": None, "params": None, "schema": None,
-        }}},
+        "services": {
+            "svc": {
+                "m": {
+                    "status": "needs_params",
+                    "error_code": -32602,
+                    "risk": "read",
+                    "discovered_by": "catalog",
+                    "covered_by": None,
+                    "params": None,
+                    "schema": None,
+                }
+            }
+        },
     }
     dev = project_report(raw, "x_1")
     entry = build_manifest([dev])["devices"][0]
-    assert entry["available_count"] == 1   # needs_params is "present"
+    assert entry["available_count"] == 1  # needs_params is "present"
     assert entry["service_count"] == 1
     assert entry["not_wrapped_count"] == 1

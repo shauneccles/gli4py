@@ -11,8 +11,13 @@ SITE = Path(__file__).resolve().parent.parent / "site"
 def test_index_html_has_controls():
     html = (SITE / "index.html").read_text(encoding="utf-8")
     for needle in (
-        'id="device"', 'id="search"', 'id="available-only"',
-        'id="not-wrapped"', 'id="results"', "app.js", "style.css",
+        'id="device"',
+        'id="search"',
+        'id="available-only"',
+        'id="not-wrapped"',
+        'id="results"',
+        "app.js",
+        "style.css",
     ):
         assert needle in html, needle
 
@@ -28,7 +33,9 @@ def test_sample_data_present_and_sanitized():
     assert manifest["devices"], "expected committed sample data"
     mac_re = re.compile(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}")
     for entry in manifest["devices"]:
-        dev = json.loads((SITE / "data" / "devices" / f"{entry['id']}.json").read_text(encoding="utf-8"))
+        dev = json.loads(
+            (SITE / "data" / "devices" / f"{entry['id']}.json").read_text(encoding="utf-8")
+        )
         assert "mac" not in dev and "sn" not in dev and "sn_bak" not in dev
         for service in dev["services"].values():
             for rec in service.values():
