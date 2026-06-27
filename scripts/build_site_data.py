@@ -19,6 +19,22 @@ _METHOD_FIELDS = ("status", "error_code", "risk", "discovered_by", "covered_by",
 _PRESENT = ("available", "needs_params")
 
 
+def _sanitize_schema(obj: Any) -> Any:
+    """Recursively drop dict keys named 'value' from schema objects.
+
+    Schema shapes can legitimately have a field named 'value' (e.g. select-option
+    objects {label: str, value: int}), but the key name collides with the
+    per-method 'value' field that holds actual device responses and must not be
+    published.  Dropping these keys keeps the shape description while ensuring
+    no 'value' key appears anywhere in the published JSON.
+    """
+    if isinstance(obj, dict):
+        return {k: _sanitize_schema(v) for k, v in obj.items() if k != "value"}
+    if isinstance(obj, list):
+        return [_sanitize_schema(item) for item in obj]
+    return obj
+
+
 def project_report(raw: dict[str, Any], device_id_str: str) -> dict[str, Any]:
     """Project a raw enumerator report to the publishable, sanitized surface."""
     device = raw.get("device", {})
@@ -28,7 +44,14 @@ def project_report(raw: dict[str, Any], device_id_str: str) -> dict[str, Any]:
             out[field] = device[field]
     out["services"] = {
         service: {
-            method: {field: rec.get(field) for field in _METHOD_FIELDS}
+            method: {
+                field: (
+                    _sanitize_schema(rec.get(field))
+                    if field == "schema"
+                    else rec.get(field)
+                )
+                for field in _METHOD_FIELDS
+            }
             for method, rec in methods.items()
         }
         for service, methods in raw.get("services", {}).items()

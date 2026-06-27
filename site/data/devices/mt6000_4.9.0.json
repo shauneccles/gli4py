@@ -1467,8 +1467,7 @@
             "support_pin_count": "bool",
             "supports_ip_type": [
               {
-                "label": "str",
-                "value": "int"
+                "label": "str"
               }
             ],
             "supports_rrc_seg": "bool",
@@ -3239,8 +3238,7 @@
           "list": [
             {
               "id": "int",
-              "label": "str",
-              "value": "str"
+              "label": "str"
             }
           ]
         },
